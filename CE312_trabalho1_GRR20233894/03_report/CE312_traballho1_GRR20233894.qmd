@@ -494,6 +494,6 @@ Para estudos futuros:
 
 COLOSIMO, Enrico A.; GIOLO, Suely R. Análise de sobrevivência aplicada. 2. ed. São Paulo: Blucher, 2021. (Coleção Projeto Fisher).
 
-Códigos utilizados disponíveis em: <https://github.com/Vitor-Pignatari/Projeto-integrador---Planejamento-de-experimentos>
+Códigos utilizados disponíveis em: <https://github.com/victorpietchakiUFPR/UFPR_DEST_CE312_Estudo_de_Simulacao>
 
 RIBEIRO JUNIOR, Paulo Justiniano; MAYER, Fernando Pol. Materiais da disciplina CE312. Curitiba: LEG/DEST/UFPR. Disponível em: <http://www.leg.ufpr.br/~paulojus/CE312/materiais.html>. Último acesso em: 26 abr. 2026.

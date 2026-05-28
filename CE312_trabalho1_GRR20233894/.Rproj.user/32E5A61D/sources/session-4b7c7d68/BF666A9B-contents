@@ -1,0 +1,65 @@
+library(tidyverse)
+
+# Exponencial
+load("01_data//res_exp_n10_B1000_ncens100.RData")
+plot_exp <- ggplot(res_exp) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_exp)
+load("01_data//res_exp_n100_B1000_ncens100.RData")
+plot_exp <- ggplot(res_exp) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_exp)
+load("01_data//res_exp_n1000_B1000_ncens100.RData")
+plot_exp <- ggplot(res_exp) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_exp)
+
+
+
+# Weibull
+load("01_data//res_wb_n10_B1000_ncens100.RData")
+plot_wb <- ggplot(res_wb) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_wb)
+load("01_data//res_wb_n100_B1000_ncens100.RData")
+plot_wb <- ggplot(res_wb) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_wb)
+load("01_data//res_wb_n1000_B1000_ncens100.RData")
+plot_wb <- ggplot(res_wb) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_wb)
+
+
+
+# Log-Normal
+load("01_data//res_ln_n10_B1000_ncens100.RData")
+plot_ln <- ggplot(res_ln) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_ln)
+load("01_data//res_ln_n100_B1000_ncens100.RData")
+plot_ln <- ggplot(res_ln) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_ln)
+load("01_data//res_ln_n1000_B1000_ncens100.RData")
+plot_ln <- ggplot(res_ln) +
+  aes(x = c, y = bias) +
+  geom_line(colour = "#112446") +
+  theme_minimal()
+plotly::ggplotly(plot_ln)

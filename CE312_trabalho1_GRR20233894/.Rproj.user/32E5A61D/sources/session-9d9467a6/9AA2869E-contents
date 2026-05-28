@@ -1,0 +1,499 @@
+---
+title: "Viés De Estimadores em Análise de Sobrevivência Controlando o Percentual de Censura: um Estudo por Simulação de Monte Carlo"
+autor:
+  - "João Victor Pietchaki Gonçalves"
+# orientador:
+#   - "Professor Paulo Justiniano Ribeiro Junior"
+#   - "Silvia Emiko Shimakura"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    self-contained: true
+execute:
+  echo: true
+  warning: false
+  message: false
+tidy: styler
+---
+
+# Introdução
+
+Em análise de sobrevivência, a variável resposta é, geralmente, o tempo até a ocorrência de um evento de interesse. Este tempo é denominado **tempo de falha**, podendo ser o tempo até a morte do paciente, bem como o tempo (ou quilometragem) até a falha de um componente de um veículo automotivo.
+
+A principal característica de dados de sobrevivência é a presença de **censura**, que é a observação parcial da resposta devido ao término do estudo antes que todos os indivíduos sob estudo venham a falhar: dados censurados nos dizem que o tempo até a falha é superior àquele observado. Sem a presença de censura, as técnicas estatísticas clássicas, como inferência, análise de regressão e planejamento de experimentos poderiam ser utilizadas na análise deste tipo de dados. A falta da possibilidade de observação completa das informações de evento das unidades amostrais faz necessário o uso dos métodos de análise de sobrevivência que possibilitam incorporar na análise estatística a informação contida nos dados censurados.
+
+Dentre alguns tipos de censura existentes, há o de caráter aleatório que ocorre, por exemplo, quando um paciente é retirado no decorrer do estudo sem ter ocorrido a falha (ou quando o paciente morre por uma razão diferente da estudada).
+
+Uma representação simples do mecanismo de **censura aleatória** é feita utilizando duas variáveis aleatórias:
+
+Se:
+
+$$
+T: \text{Tempo até a falha}
+$$
+
+$$
+C: \text{Tempo de censura}
+$$
+
+Então:
+
+$$
+t = min(T, C) \text{ é o tempo observado}
+$$
+
+e
+
+$$
+\delta =
+\begin{cases}
+1, & \text{se } & T \leq C \\
+0, & \text{se } & T > C
+\end{cases}
+\text{ é o indicador de de censura.}
+$$
+
+Para uma amostra de tamanho n, os dados de sobrevivência para o i-ésimo indivíduo (i = 1, 2, ..., n) são representados da seguinte forma:
+
+$$
+\delta_i =
+\begin{cases}
+1, & \text{se } t_i \text{ é um tempo de falha (}T \leq C \text{)}\\ 
+0, & \text{se } t_i \text{ é um tempo censurado (}T > C \text{)}
+\end{cases}
+$$
+
+A variável aleatória T deve ser uma não-negativa, usualmente contínua (exponencial, weibull, log-normal, gamma, gamma generalizada, etc.). Geralmente, T é especificada pela sua função de sobrevivência:
+
+$$
+S(t) = P(T \geq t) = 1 - F(t) \text{ é a função de sobrevivência}
+$$ e $$
+F(t) \text{ é a função de distribuição acumulada da distribuição de probabilidade que descreve a v.a. T.}
+$$ Assumimos que a variável aleatória T segue uma distribuição de probabilidade com suporte estritamente positivo a qual não conhecemos os parâmetros. Tais, portanto, devem ser estimados a partir das observações amostrais para determinação do modelo probabilístico. Neste estudo, utiliza-se o **Método de Máxima Verossimilhança** implementada no pacote `survival` da linguagem de programação R para a estimação dos parâmetros.
+
+A expressão para a função de verossimilhança para o mecanismo aleatório de censura é dada por:
+
+$$
+L(\theta) \propto \prod_{i=1}^{n} f(t_i;\theta)^{\delta_i} \, S(t_i;\theta)^{1 - \delta_i}
+$$
+conforme demonstrado na literatura de análise de sobrevivência (COLOSIMO; GIOLO, 2021).
+
+# Motivação
+
+O presente estudo tem como objetivo avaliar o viés de estimadores de parâmetros de uma distribuição de probabilidade e da função de sobrevivência S(t) em função do percentual de censura presente nos dados. Para isso, é realizada uma simulação de Monte Carlo, onde são geradas amostras aleatórias com diferentes percentuais de censura, e os parâmetros da distribuição de probabilidade e a função de sobrevivência são estimados utilizando o método de máxima verossimilhança. O viés relativo é então calculado para avaliar a precisão dos estimadores em relação aos parâmetros verdadeiros variando o percentual de censura em amostras descritas por diferentes distribuições de probabilidade estritamento positivas, a saber: exponencial, weibull-2p, log-normal, gama generalizada.
+
+# Simulação
+
+Para este estudo, fez-se necessário a utilização do Método de Simulação de Monte Carlo com implementação na linguagem de progamação R para condução das análises O processo de simulação é descrito a seguir.
+
+## Algoritmo
+
+Uma simulação consiste de:
+
+1.  Definir as **distribuições e parâmetros de** $T$ **e** $C$;
+2.  Estabelecer um **grid de pontos percentuais** $\tau$;
+3.  Fixar um percentual de censura $\tau$;
+4.  Gerar **B amostras aleatórias de tamanho** $n$ com dados de sobrevivência a partir de $T$ e $C$ condicionados a $\tau$;
+5.  Estimar os parâmetros do modelo para cada simulação $B$ via **Máxima Verossimilhança** (**EMV)**;
+6.  Calcular o **viés relativo do(s) parâmetro(s) e** $\hat{S}(t)$ ponto a ponto contra a curva teórica;
+7.  Obter o **viés relativo global** para o referido $\tau$;
+8.  Repetir o processo para **todos os** $\tau$ definidos no grid.
+
+## Configuração
+
+$$
+\# \tau = 100 \text{ (diferentes pontos percentuais de censura)}
+$$
+
+$$
+B = 1000 \text{ (simulações)}
+$$
+
+$$
+n = 1000 \text{ (unidades amostrais)}
+$$
+
+### T \~ Exp( $\lambda$ )
+
+$$
+\lambda = 0.3
+$$
+
+### T \~ Weibull( $k$ , $\lambda$ )
+
+$$
+k = 3
+$$
+
+$$
+\lambda = 0.3
+$$
+
+### T \~ LN( $\mu$, $\sigma$ )
+
+$$
+\mu = 3
+$$
+
+$$
+\sigma = 0.3
+$$
+
+### T \~ GG( $k$, $\lambda$, $Q$ )
+
+$$
+k = 3
+$$
+
+$$
+\lambda = 0.3
+$$
+
+$$
+Q = 3
+$$
+
+## Geração de Amostras Aleatórias
+
+```{r, eval=FALSE}
+aa.exp <- function(n, lambda, theta) {
+  
+  # Tempos até o evento
+  T_ <- rexp(n = n, rate = 1/lambda)
+  
+  # Tempos de censura
+  C_ <- runif(n, min = 0, max = theta)
+  
+  # Tempos Observados
+  tempos <- pmin(T_, C_)
+  # Indicador de censura
+  cens <- as.integer(T_ <= C_)
+  # Tempos observados com indicador de censura
+  X <- cbind(tempos, cens) |> as.data.frame()
+  colnames(X) <- c("time", "event")
+  
+  return(X)
+}
+```
+
+## Estimação da Função de Sobrevivência S(t)
+
+```{r, eval=FALSE}
+fit.exp <- function(n = n, lambda = lambda, theta = theta){
+  
+  # Gera amostra aleatória
+  X <- aa.exp(n = n, lambda = lambda, theta = theta)
+  
+  # Ajusta parâmetros usando MLE
+  fit <- flexsurvreg(
+    Surv(time, event) ~ 1
+    ,data = X
+    ,dist = "exponential"
+  )
+  
+  # Extraindo estimativas pontuais
+  lambda_hat <- 1/exp(fit$coefficients[1])
+  
+  # Percentual de censura
+  cens_perc <- mean(1 - X$event)
+  
+  # Retorna as estimativas pontuais
+  return(c(c = cens_perc, lambda = lambda_hat))
+}
+```
+
+## Cálculo do Viés Relativo
+
+O cálculo do viés foi realizado integrada para cada ponto um fixo grid temporal $t$ variando do tempo zero até o percentil 99% da distribuição teórica ($t_{0.99}$). A avaliação do viés adota a métrica do Viés Relativo Médio ao longo do tempo (MRE) para a sobrevivência:
+
+$$\text{Viés}(\hat{\theta}) = \frac{1}{B}\sum_{b=1}^{B} \left( \frac{\hat{\theta}_b - \theta}{\theta} \right)$$ $$\text{Viés}(\hat{S}(t)) = \text{Mean}_t \left( \frac{\frac{1}{B}\sum_{j=1}^{B}\hat{S}_j(t) - S(t)}{S(t)} \right)$$
+
+```{r, eval=FALSE}
+# Definindo um grid de valores de t
+t_exp <- seq(0, quantile(rexp(1e5, rate = 1/lambda), 0.99), length.out = 1e4)
+```
+
+```{r, eval=FALSE}
+S_t_teorica_exp <- pexp(q = t_exp, rate = 1/lambda, lower.tail = FALSE)
+```
+
+```{r, eval=FALSE}
+# Função de sobrevivência estimada
+S_t_estimada_exp <- function(t, lambda){
+  pexp(q = t, rate = 1/lambda, lower.tail = FALSE)
+}
+```
+
+```{r, eval=FALSE}
+sim_exp <- function(B, n, lambda, theta){
+  
+  # Gerando amostras e estimando
+  params_ams_exp <- replicate(
+    B,
+    fit.exp(
+      n = n,
+      lambda = lambda,
+      theta = theta
+    )
+  ) |> t()
+  
+  # Estimando S(t) para cada simulação
+  S_t_estimado_ams_exp <- sapply(
+    params_ams_exp[, "lambda"]
+    ,function(lambda) S_t_estimada_exp(t_exp, lambda)
+  )
+  S_t_estimado_ams_mean_exp <- rowMeans(S_t_estimado_ams_exp)
+  
+  # Estimando o viés
+  cens_perc <- mean(params_ams_exp[, "c"])
+  bias_S_t <- mean(S_t_estimado_ams_mean_exp/S_t_teorica_exp - 1)
+  bias_lambda <- mean(params_ams_exp[, "lambda"]/lambda - 1)
+  
+  return(c(c = cens_perc, bias_S_t = bias_S_t, bias_lambda = bias_lambda))
+  
+}
+```
+
+## Execução da Simulação
+
+```{r, eval=FALSE}
+res_exp <- future_sapply(
+  theta,
+  function(x) {
+    sim_exp(
+      B = B,
+      n = n,
+      lambda = lambda,
+      theta = x
+    )
+  },
+  future.seed = TRUE
+)
+```
+
+*"Para cada* $\tau$*% de censura, simulamos B amostras de tamanho n de dados de sobrevivência descritas pelas v.a.'s T e C, e calculamos o viés relativo de* $\hat{S(t)}$ *e respectivos parâmetros. Assim, para cada* $\tau$*% de censura temos um viés."*
+
+# Resultados
+
+```{r, echo=FALSE}
+library(tidyverse)
+
+```
+
+
+### T \~ Exp( $\lambda$ = 0.3)
+```{r, echo=FALSE}
+load("01_data//res_exp_n1000_B1000_ncens100.RData")
+dados <- rbind(
+  data.frame(c = res_exp$c, bias = res_exp$bias_S_t, tipo = "S(t)"),
+  data.frame(c = res_exp$c, bias = res_exp$bias_lambda, tipo = "lambda")
+)
+```
+
+
+```{r, echo=FALSE}
+plot <- dados %>%
+ filter(tipo %in% "S(t)") %>%
+ ggplot() +
+  aes(x = c, y = bias) +
+  geom_line(linewidth = 0.5, colour = "#1F77B4") +
+  labs(
+    x = "Percentual de Censura",
+    y = "Viés Relativo",
+    title = "Exp ~ (0.3)"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+
+```
+
+```{r, echo=FALSE}
+plot <- ggplot(dados) +
+  aes(x = c, y = bias, colour = tipo) +
+  geom_line() +
+  scale_color_manual(
+    values = c(lambda = "#4D4D4D",
+    Q = "#BDC3C7",
+    `S(t)` = "#1F77B4",
+    sigma = "#7F8C8D")
+  ) +
+  labs(
+    x = "Percentual de Censura",
+    y = "Viés Relativo",
+    title = "Exp ~ (0.3)",
+    color = "Estimador"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+```
+
+
+### T \~ Weibull( $k$ = 3, $\lambda$ = 0.3)
+```{r, echo=FALSE}
+load("01_data//res_wb_n1000_B1000_ncens100.RData")
+dados <- rbind(
+  data.frame(c = res_wb$c, bias = res_wb$bias_S_t, tipo = "S(t)"),
+  data.frame(c = res_wb$c, bias = res_wb$bias_shape, tipo = "shape"),
+  data.frame(c = res_wb$c, bias = res_wb$bias_scale, tipo = "scale"))
+```
+
+```{r, echo=FALSE}
+plot <- dados %>%
+ filter(tipo %in% "S(t)") %>%
+ ggplot() +
+  aes(x = c, y = bias) +
+  geom_line(linewidth = 0.5, colour = "#1F77B4") +
+  labs(
+    x = "Percentual de Censura",
+    y = "Viés Relativo",
+    title = "Weibull ~ (3, 0.3)"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+
+```
+
+```{r, echo=FALSE}
+plot <- ggplot(dados) +
+  aes(x = c, y = bias, colour = tipo) +
+  geom_line() +
+  scale_color_manual(
+    values = c(lambda = "#4D4D4D",
+    Q = "#BDC3C7",
+    `S(t)` = "#1F77B4",
+    sigma = "#7F8C8D")
+  ) +
+  labs(
+    x = "Percentual de Censura",
+    y = "Viés Relativo",
+    title = "Weibull ~ (3, 0.3)",
+    color = "Estimador"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+```
+
+
+### T \~ LN( $\mu$ = 3, $\sigma$ = 0.3)
+
+```{r, echo=FALSE}
+load("01_data//res_ln_n1000_B1000_ncens100.RData")
+dados <- rbind(
+  data.frame(c = res_ln$c, bias = res_ln$bias_S_t, tipo = "S(t)"),
+  data.frame(c = res_ln$c, bias = res_ln$bias_meanlog, tipo = "meanlog"),
+  data.frame(c = res_ln$c, bias = res_ln$bias_sdlog, tipo = "sdlog"))
+```
+
+```{r, echo=FALSE}
+plot <- dados %>%
+ filter(tipo %in% "S(t)") %>%
+ ggplot() +
+  aes(x = c, y = bias) +
+  geom_line(linewidth = 0.5L, colour = "#1F77B4") +
+  labs(
+    x = "Percentual de Censura",
+    y = "Viés Relativo",
+    title = "LN ~ (3, 0.3)"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+```
+```{r, echo=FALSE}
+plot <- ggplot(dados) +
+  aes(x = c, y = bias, colour = tipo) +
+  geom_line() +
+  scale_color_manual(
+    values = c(lambda = "#4D4D4D",
+    Q = "#BDC3C7",
+    `S(t)` = "#1F77B4",
+    sigma = "#7F8C8D")
+  ) +
+  labs(
+    x = "Percentual de Censura",
+    y = "Viés Relativo",
+    title = "LN ~ (3, 0.3)",
+    color = "Estimador"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+```
+
+
+### T \~ GG( $k$ = 3 , $\lambda$ = 0.3, $Q$ =3)
+
+```{r, echo=FALSE}
+load("01_data//res_gg_n1000_B1000_ncens100.RData")
+dados <- rbind(
+  data.frame(c = res_gg$c, bias = res_gg$bias_S_t, tipo = "S(t)"),
+  data.frame(c = res_gg$c, bias = res_gg$bias_mu, tipo = "mu"),
+  data.frame(c = res_gg$c, bias = res_gg$bias_sigma, tipo = "sigma"),
+  data.frame(c = res_gg$c, bias = res_gg$bias_Q, tipo = "Q"))
+```
+
+
+```{r, echo=FALSE}
+plot <- dados %>%
+ filter(tipo %in% "S(t)") %>%
+ ggplot() +
+  aes(x = c, y = bias) +
+  geom_line(linewidth = 0.5L, colour = "#1F77B4") +
+  labs(
+    x = "Percentual de Censura",
+    y = "Viés Relativo",
+    title = "GG ~ (3, 0.3, 3)"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+
+```
+
+
+```{r, echo=FALSE}
+load("01_data/res_gg_n1000_B1000_ncens100.RData")
+plot <- ggplot(dados) +
+  aes(x = c, y = bias, colour = tipo) +
+  geom_line() +
+  scale_color_manual(
+    values = c(lambda = "#4D4D4D",
+    Q = "#BDC3C7",
+    `S(t)` = "#1F77B4",
+    sigma = "#7F8C8D")
+  ) +
+  labs(
+    x = "Percentual de Censura",
+    y = "Viés Relativo",
+    title = "GG ~ (3, 0.3, 3)",
+    color = "Estimador"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+
+```
+
+
+# Conclusões
+
+O viés relativo dos estimadores de parâmetros e da função de sobrevivência S(t) tende a aumentar à medida que o percentual de censura aumenta, indicando que a presença de censura pode introduzir um viés significativo na estimação dos parâmetros e da função de sobrevivência. Entretanto, obaserva-se uma certa convergência do viés em torno de 0 para os percentuais de censura até entre 50 e  70%, o que sugere que os estimadores podem ser relativamente robustos a níveis moderados de censura.
+
+Destaca-se que as estimativas para a função de sobrevivência resultante de uma distribução Weibull foi a menos viesada e também com menor dispersão em torno de 0 para maiores percentuais de censura, conseguindo chegar a resultados consistentes para até ~88% de censura, mas apresentando o pior resultado além desse percentual quando comparado com as outras distribuições.
+
+Vale ressaltar que o modelo da Gama Generalizada, apesar de ser o mais flexível entre todos, apresenta uma clara tendência crescente para o viés relativo dos parâmetros e função de sobrevivência, sugerindo a importância de utilizar o modelo mais simples sempre quando possível.
+
+
+# Recomendações para estudos futuros
+
+Para estudos futuros:
+
+-   Realizar o mesmo estudo variando o tamanho n da amostra e comparar o comportamento do viés;
+-   Calcular o viés relativo para o estimador não-paramétrico de Kaplan-Meier e comparar com as estimativas paramétricas;
+-   Reciclar o código visando otimizar o tempo de execução do algoritmo da simulação.
+
+# Referências
+
+COLOSIMO, Enrico A.; GIOLO, Suely R. Análise de sobrevivência aplicada. 2. ed. São Paulo: Blucher, 2021. (Coleção Projeto Fisher).
+
+Códigos utilizados disponíveis em: <https://github.com/Vitor-Pignatari/Projeto-integrador---Planejamento-de-experimentos>
+
+RIBEIRO JUNIOR, Paulo Justiniano; MAYER, Fernando Pol. Materiais da disciplina CE312. Curitiba: LEG/DEST/UFPR. Disponível em: <http://www.leg.ufpr.br/~paulojus/CE312/materiais.html>. Último acesso em: 26 abr. 2026.

@@ -1,0 +1,199 @@
+# ESTUDO APLICADO DO MÉTODO DE SIMULAÇÃO DE MONTE CARLO
+# ________________________________________________________
+# AVALIANDO O VIÉS DE ESTIMADORES DA FUNÇÃO DE SOBREVIVÊNCIA
+# EM AMOSTRAS DE DIFERENTES PERCENTUAIS DE CENSURA:
+# UMA APLICAÇÃO DO MÉTODO DE MONTE CARLO
+
+# ________________________________________________________
+# ================ 0. PACOTES NECESSÁRIOS ================
+# ________________________________________________________
+
+# Carregando pacotes...
+library(tidyverse)
+library(survival)
+library(flexsurv)
+# install.packages("future.apply")
+library(future.apply)
+library(future)
+plan(multisession, workers = 4)
+
+
+
+# ______________________________________________________________
+# =========== 1. DEFINIÇÃO DE PARÂMETROS DA SIMULAÇÃO ==========
+# ______________________________________________________________
+
+# Tamanho amostral
+n <- 1e3
+
+# Número de simulações
+B <- 1e3
+
+# Tempos até o evento ~ Distribuição Weibull-2p
+shape <- 3
+scale <- 0.3
+
+# Número de percentuais de censura
+n_cens_perc <- 1e2
+
+# Tempos de censura ~ Distribuição Uniforme Contínua
+# theta <- seq(1e3, 1e6, length.out = n_cens_perc) # Controle % de censura
+calc_cens <- function(theta, n = 20000){
+  T_ <- rweibull(n, shape, scale)
+  C_ <- runif(n, 0, theta)
+  mean(C_ < T_)
+}
+
+# Gera grid para theta a fim o obter percentuais de censura
+# distribuídos de forma quase equilibrada entre 0 e 1.
+theta_grid <- exp(seq(log(0.001), log(1e3), length.out = n_cens_perc))
+cens_grid <- sapply(theta_grid, calc_cens)
+df_calib <- data.frame(
+  cens = cens_grid,
+  theta = theta_grid
+) |>
+  arrange(cens) |>
+  group_by(cens) |>
+  summarise(theta = mean(theta), .groups = "drop")
+theta_from_cens <- function(target_cens){
+  approx(
+    x = df_calib$cens,
+    y = df_calib$theta,
+    xout = target_cens,
+    rule = 2
+  )$y
+}
+cens_targets <- seq(0.01, 0.99, length.out = n_cens_perc)
+theta <- sapply(cens_targets, theta_from_cens)
+
+
+
+# ______________________________________________________________
+# =============== 2. GERANDO AMOSTRAS ALEATÓRIAS ===============
+# ______________________________________________________________
+
+# Função para gerar amostras aleatórias de dados de sobrevivência com censura
+# para a distribuição Gamma Generalizada
+aa.wb <- function(n, shape, scale, theta) {
+  
+  # Tempos até o evento
+  T_ <- rweibull(n = n, shape = shape, scale = scale)
+  
+  # Tempos de censura
+  C_ <- runif(n, min = 0, max = theta)
+  
+  # Tempos Observados
+  tempos <- pmin(T_, C_)
+  # Indicador de censura
+  cens <- as.integer(T_ <= C_)
+  # Tempos observados com indicador de censura
+  X <- cbind(tempos, cens) |> as.data.frame()
+  colnames(X) <- c("time", "event")
+  
+  return(X)
+}
+
+
+# ________________________________________________________
+# ================= 3. ESTIMAÇÃO DE S(t) =================
+# ________________________________________________________
+
+fit.wb <- function(n = n, shape = shape, scale = scale, theta = theta){
+  
+  # Gera amostra aleatória
+  X <- aa.wb(n = n, shape = shape, scale = scale, theta = theta)
+  
+  # Modelo Paraamétrico: Distribuição Gamma Generalizada
+  # Ajusta parâmetros usando MLE
+  fit <- survreg(
+    Surv(time, event) ~ 1
+    ,data = X
+    ,dist = "weibull"
+  )
+  
+  # Extraindo estimativas pontuais
+  shape_hat <- 1 / fit$scale
+  scale_hat <- exp(fit$coefficients[1])
+  params <- c(shape_hat, scale_hat)
+  names(params) <- c("shape", "scale")
+  
+  # Percentual de censura
+  cens_perc <- mean(1 - X$event)
+  
+  # Retorna as estimativas pontuais
+  return(c(c = cens_perc, params))
+}
+
+
+# ________________________________________________________
+# ================= 3. CALCULANDO O VIÉS =================
+# ________________________________________________________
+# Definindo um grid de valores de t
+t_wb <- seq(0.02, qweibull(0.98, shape, scale), length.out = 1e4)
+
+# Função de sobrevivência teórica
+S_t_teorica_wb <- pweibull(q = t_wb, shape = shape, scale = scale, lower.tail = FALSE)
+
+# Função de sobrevivência estimada
+S_t_estimada_wb <- function(t, params){
+  pweibull(q = t, shape = params["shape"], scale = params["scale"], lower.tail = FALSE)
+}
+
+# Calcula viés para cada percentual de censura
+sim_wb <- function(B, n, shape, scale, theta){
+  
+  params_ams_wb <- replicate(
+    B,
+    tryCatch(
+      fit.wb(n, shape, scale, theta),
+      error = function(e) rep(NA, 4)
+    )
+  ) |> t()
+  
+  params_ams_wb <- na.omit(params_ams_wb)
+  
+  if(nrow(params_ams_wb) == 0) return(c(c = NA, bias = NA))
+  
+  S_t_estimado_ams_wb <- apply(
+    params_ams_wb[, 2:ncol(params_ams_wb)],
+    1,
+    function(params) S_t_estimada_wb(t_wb, params)
+  )
+  
+  # Calculando o Erro Relativo Integrado (IMRE) para cada coluna (simulação)
+  if(ncol(S_t_estimado_ams_wb) == length(t_wb) && nrow(S_t_estimado_ams_wb) != length(t_wb)){
+    S_t_estimado_ams_wb <- t(S_t_estimado_ams_wb)
+  }
+  
+  # Métrica: Média do Erro Relativo ao longo da curva (Independente da escala do tempo)
+  imre_por_simulacao <- apply(S_t_estimado_ams_wb, 2, function(S_estimada) {
+    mean((S_estimada - S_t_teorica_wb) / S_t_teorica_wb, na.rm = TRUE)
+  })
+  
+  bias_S_t <- mean(imre_por_simulacao, na.rm = TRUE)
+  bias_shape <- mean(params_ams_wb[, "shape"]/shape - 1, na.rm = TRUE)
+  bias_scale <- mean(params_ams_wb[, "scale"]/scale - 1, na.rm = TRUE)
+  cens_perc <- mean(params_ams_wb[, "c"], na.rm = TRUE)
+  
+  return(c(c = cens_perc,
+           bias_S_t = bias_S_t,
+           bias_shape = bias_shape,
+           bias_scale = bias_scale))
+}
+
+# Executa a simulação para cada percentual de censura
+res_wb <- future_sapply(theta, function(theta) {
+  sim_wb(B, n, shape, scale, theta)},
+  future.seed = TRUE)
+
+# Salva dados em .RData
+res_wb <- as.data.frame(t(res_wb))
+path <- paste0("01_data//res_wb_", "n", n, "_B", B, "_ncens", n_cens_perc, ".RData")
+save(res_wb, file = path)
+colnames(res_wb) <- c("c", "bias_S_t", "bias_shape", "bias_scale")
+
+# Organiza dados para visualização
+dados <- rbind(
+  data.frame(c = res_wb$c, bias = res_wb$bias_S_t, tipo = "S(t)"),
+  data.frame(c = res_wb$c, bias = res_wb$bias_shape, tipo = "shape"),
+  data.frame(c = res_wb$c, bias = res_wb$bias_scale, tipo = "scale"))

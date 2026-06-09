@@ -847,4 +847,10 @@ Códigos utilizados disponíveis em:
 
 COLOSIMO, Enrico A.; GIOLO, Suely R. Análise de sobrevivência aplicada. 2. ed. São Paulo: Blucher, 2021. (Coleção Projeto Fisher).
 
+<<<<<<< HEAD
 RIBEIRO JUNIOR, Paulo Justiniano; MAYER, Fernando Pol. Materiais da disciplina CE312. Curitiba: LEG/DEST/UFPR. Disponível em: <http://www.leg.ufpr.br/~paulojus/CE312/materiais.html>. Último acesso em: 26 abr. 2026.
+=======
+Códigos utilizados disponíveis em: <https://github.com/victorpietchakiUFPR/UFPR_DEST_CE312_Estudo_de_Simulacao>
+
+RIBEIRO JUNIOR, Paulo Justiniano; MAYER, Fernando Pol. Materiais da disciplina CE312. Curitiba: LEG/DEST/UFPR. Disponível em: <http://www.leg.ufpr.br/~paulojus/CE312/materiais.html>. Último acesso em: 26 abr. 2026.
+>>>>>>> 75a6c3212e3d78b96a2c9ee5252714cb81af787a

@@ -14,14 +14,16 @@ dados <- rbind(
 )
 
 # Percentual de Censura x Viés relativo de S(t)
-plot_exp <- ggplot(res_exp) +
+plot_exp <- res_exp %>% filter(c <= 0.8) %>%
+  ggplot() +
   aes(x = c, y = bias_S_t) +
   geom_line(colour = "#112446") +
   theme_minimal()
 plotly::ggplotly(plot_exp)
 
 # Percentual de Censura x Viés relativo de S(t) e parâmetros
-plot_bias <- ggplot(dados) +
+plot_bias <- dados %>% filter(c <= 0.8) %>%
+  ggplot() +
   aes(x = c, y = bias, colour = tipo) +
   geom_line() +
   scale_color_hue(direction = 1) +
@@ -44,14 +46,16 @@ dados <- rbind(
   data.frame(c = res_wb$c, bias = res_wb$bias_scale, tipo = "scale"))
 
 # Percentual de Censura x Viés relativo de S(t)
-plot_wb <- ggplot(res_wb) +
+plot_wb <- res_wb %>% filter(c <= 0.8) %>%
+  ggplot() +
   aes(x = c, y = bias_S_t) +
   geom_line(colour = "#112446") +
   theme_minimal()
 plotly::ggplotly(plot_wb)
 
 # Percentual de Censura x Viés relativo de S(t) e parâmetros
-plot_bias <- ggplot(dados) +
+plot_bias <- dados %>% filter(c <= 0.8) %>%
+  ggplot() +
   aes(x = c, y = bias, colour = tipo) +
   geom_line() +
   scale_color_hue(direction = 1) +
@@ -74,14 +78,16 @@ dados <- rbind(
   data.frame(c = res_ln$c, bias = res_ln$bias_sdlog, tipo = "sdlog"))
 
 # Percentual de Censura x Viés relativo de S(t)
-plot_ln <- ggplot(res_ln) +
+plot_ln <- res_ln %>% filter(c <= 0.8) %>% 
+  ggplot() +
   aes(x = c, y = bias_S_t) +
   geom_line(colour = "#112446") +
   theme_minimal()
 plotly::ggplotly(plot_ln)
 
 # Percentual de Censura x Viés relativo de S(t) e parâmetros
-plot_bias <- ggplot(dados) +
+plot_bias <- 
+  ggplot(dados) +
   aes(x = c, y = bias, colour = tipo) +
   geom_line() +
   scale_color_hue(direction = 1) +

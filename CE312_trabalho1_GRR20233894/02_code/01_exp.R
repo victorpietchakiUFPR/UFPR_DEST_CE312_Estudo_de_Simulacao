@@ -34,7 +34,7 @@ n_cens_perc <- 1e2
 # Tempos até o evento ~ Distribuição Exponencial
 lambda <- 0.3
 
-# # Tempos de censura ~ Distribuição Uniforme Contínua
+# Tempos de censura ~ Distribuição Uniforme Contínua
 calc_cens <- function(theta, n = 20000){
   T_ <- rexp(n, rate = 1/lambda)
   C_ <- runif(n, 0, theta)
@@ -44,7 +44,11 @@ calc_cens <- function(theta, n = 20000){
 # Gera grid para theta a fim o obter percentuais de censura
 # distribuídos de forma quase equilibrada entre 0 e 1.
 theta_grid <- exp(seq(log(0.001), log(1e3), length.out = n_cens_perc))
+
+# Calcula percentuais de censura para cada valor de theta
 cens_grid <- sapply(theta_grid, calc_cens)
+
+# Organiza dados para obter a função de calibração entre theta e censura
 df_calib <- data.frame(
   cens = cens_grid,
   theta = theta_grid
@@ -52,6 +56,9 @@ df_calib <- data.frame(
   arrange(cens) |>
   group_by(cens) |>
   summarise(theta = mean(theta), .groups = "drop")
+
+# Obtém o theta correspondente a cada percentual de censura
+# Obs.: Usa-se interpolação linear
 theta_from_cens <- function(target_cens){
   approx(
     x = df_calib$cens,
@@ -60,6 +67,9 @@ theta_from_cens <- function(target_cens){
     rule = 2
   )$y
 }
+
+# Obtém o theta linearmante interpolado correspondente
+# Obs.: para cada percentual de censura desejado
 cens_targets <- seq(0.05, 0.95, length.out = n_cens_perc)
 theta <- sapply(cens_targets, theta_from_cens)
 
@@ -100,7 +110,7 @@ fit.exp <- function(n = n, lambda = lambda, theta = theta){
   # Gera amostra aleatória
   X <- aa.exp(n = n, lambda = lambda, theta = theta)
   
-  # Modelo Paraamétrico: Distribuição Gamma Generalizada
+  # Modelo Paramétrico: Exponencial
   # Ajusta parâmetros usando MLE
   fit <- flexsurvreg(
     Surv(time, event) ~ 1
@@ -110,8 +120,6 @@ fit.exp <- function(n = n, lambda = lambda, theta = theta){
   
   # Extraindo estimativas pontuais
   lambda_hat <- 1/exp(fit$coefficients[1])
-  
-  # lambda_hat <- sum(X$event) / sum(X$time)
   
   # Percentual de censura
   cens_perc <- mean(1 - X$event)

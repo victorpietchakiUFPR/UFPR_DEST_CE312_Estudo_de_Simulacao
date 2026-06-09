@@ -86,7 +86,7 @@ O presente estudo tem como objetivo avaliar o viés de estimadores de parâmetro
 
 # Simulação
 
-Para este estudo, fez-se necessário a utilização do Método de Simulação de Monte Carlo com implementação na linguagem de progamação R para condução das análises O processo de simulação é descrito a seguir.
+Para este estudo, fez-se necessário a utilização do Método de Simulação de Monte Carlo com implementação na linguagem de progamação R para condução das análises. O processo de simulação é descrito a seguir.
 
 ## Algoritmo
 
@@ -155,7 +155,45 @@ $$
 Q = 3
 $$
 
-## Geração de Amostras Aleatórias
+## Grid de Percentuais de Censura {#grid_tau}
+
+```{r, eval=FALSE}
+# Gera grid para theta a fim o obter percentuais de censura
+# distribuídos de forma quase equilibrada entre 0 e 1.
+theta_grid <- exp(seq(log(0.001), log(1e3), length.out = n_cens_perc))
+
+# Calcula percentuais de censura para cada valor de theta
+cens_grid <- sapply(theta_grid, calc_cens)
+
+# Organiza dados para obter a função de calibração entre theta e censura
+df_calib <- data.frame(
+  cens = cens_grid,
+  theta = theta_grid
+) |>
+  arrange(cens) |>
+  group_by(cens) |>
+  summarise(theta = mean(theta), .groups = "drop")
+
+# Obtém o theta correspondente a cada percentual de censura
+# Obs.: Usa-se interpolação linear
+theta_from_cens <- function(target_cens){
+  approx(
+    x = df_calib$cens,
+    y = df_calib$theta,
+    xout = target_cens,
+    rule = 2
+  )$y
+}
+
+# Obtém o theta linearmante interpolado correspondente
+# Obs.: para cada percentual de censura desejado
+cens_targets <- seq(0.05, 0.95, length.out = n_cens_perc)
+theta <- sapply(cens_targets, theta_from_cens)
+
+```
+
+
+## Geração de Amostras Aleatórias {#ams}
 
 ```{r, eval=FALSE}
 aa.exp <- function(n, lambda, theta) {
@@ -275,7 +313,7 @@ res_exp <- future_sapply(
 
 *"Para cada* $\tau$*% de censura, simulamos B amostras de tamanho n de dados de sobrevivência descritas pelas v.a.'s T e C, e calculamos o viés relativo de* $\hat{S(t)}$ *e respectivos parâmetros. Assim, para cada* $\tau$*% de censura temos um viés."*
 
-# Resultados
+## Resultados
 
 ```{r, echo=FALSE}
 library(tidyverse)
@@ -295,6 +333,7 @@ dados <- rbind(
 
 ```{r, echo=FALSE}
 plot <- dados %>%
+ filter(c <= 0.8) %>% 
  filter(tipo %in% "S(t)") %>%
  ggplot() +
   aes(x = c, y = bias) +
@@ -310,7 +349,9 @@ plotly::ggplotly(plot)
 ```
 
 ```{r, echo=FALSE}
-plot <- ggplot(dados) +
+plot <- dados %>% 
+  filter(c <= 0.8) %>% 
+  ggplot() +
   aes(x = c, y = bias, colour = tipo) +
   geom_line() +
   scale_color_manual(
@@ -341,6 +382,7 @@ dados <- rbind(
 
 ```{r, echo=FALSE}
 plot <- dados %>%
+ filter(c <= 0.8) %>% 
  filter(tipo %in% "S(t)") %>%
  ggplot() +
   aes(x = c, y = bias) +
@@ -356,7 +398,9 @@ plotly::ggplotly(plot)
 ```
 
 ```{r, echo=FALSE}
-plot <- ggplot(dados) +
+plot <- dados %>% 
+  filter(c <= 0.8) %>% 
+  ggplot() +
   aes(x = c, y = bias, colour = tipo) +
   geom_line() +
   scale_color_manual(
@@ -388,6 +432,7 @@ dados <- rbind(
 
 ```{r, echo=FALSE}
 plot <- dados %>%
+ filter(c <= 0.8) %>% 
  filter(tipo %in% "S(t)") %>%
  ggplot() +
   aes(x = c, y = bias) +
@@ -401,7 +446,9 @@ plot <- dados %>%
 plotly::ggplotly(plot)
 ```
 ```{r, echo=FALSE}
-plot <- ggplot(dados) +
+plot <- dados %>% 
+  filter(c <= 0.8) %>%
+  ggplot() +
   aes(x = c, y = bias, colour = tipo) +
   geom_line() +
   scale_color_manual(
@@ -435,6 +482,7 @@ dados <- rbind(
 
 ```{r, echo=FALSE}
 plot <- dados %>%
+ filter(c <= 0.8) %>% 
  filter(tipo %in% "S(t)") %>%
  ggplot() +
   aes(x = c, y = bias) +
@@ -452,7 +500,9 @@ plotly::ggplotly(plot)
 
 ```{r, echo=FALSE}
 load("01_data/res_gg_n1000_B1000_ncens100.RData")
-plot <- ggplot(dados) +
+plot <- dados %>% 
+  filter(c <= 0.8) %>% 
+  ggplot() +
   aes(x = c, y = bias, colour = tipo) +
   geom_line() +
   scale_color_manual(
@@ -472,10 +522,310 @@ plotly::ggplotly(plot)
 
 ```
 
+# Estudo de Caso: Comparando Amostras com Diferentes % de Censura
+
+## Configurações
+
+Baseado no esquema de simulação demonstrado anteriormente, conduzir-se-á, a partir de agora, uma análise detalhada com as seguintes configurações:
+
+- T \~ Exp($\lambda$ = 0.3);
+- C \~ U(0, $\theta$($\tau$));
+- $\tau$ = (0.25, 0.75)
+- n = 1000
+- B = 10000 (simulações)
+
+```{r}
+B <- 1e4
+
+n <- 1e3
+
+lambda <- 0.3
+
+cens_targets <- c(0.25, 0.75)
+```
+
+Para tanto, os seguintes pacotes serão utilizados:
+
+- `tidyverse` para transformação de dados em objeto `data.frame`;
+- `survival` e `flexsurv` para ajuste dos parâmetros do modelo paramétrico para a função de sobrevivência;
+- `tseries` para realizar o teste de Jarque-Bera;
+- `moments` para calcular a assimetria e coeficiente de curtose para suportar o teste de normalidade da distribuição amostral do estimador de lambda.
+
+```{r, results=FALSE}
+library(tidyverse)
+library(survival)
+library(flexsurv)
+library(moments)
+library(tseries)
+```
+
+## Grid de Percentuais de Censura
+O primeiro passo é encontrar os dois valores de $\theta$ tais que consigamos amostrar dados de sobrevivência com $\tau$ = (25%, 75%) de censura. O código é o mesmo apresentado em [Grid de Percentuais de Censura](#grid_tau)
+
+```{r}
+n_cens_perc <- 1e2
+
+theta_grid <- exp(seq(log(0.001), log(1e3), length.out = n_cens_perc))
+
+calc_cens <- function(theta, n = 20000){
+  T_ <- rexp(n, rate = 1/lambda)
+  C_ <- runif(n, 0, theta)
+  mean(C_ < T_)
+}
+
+cens_grid <- sapply(theta_grid, calc_cens)
+
+df_calib <- data.frame(
+  cens = cens_grid,
+  theta = theta_grid
+) |>
+  arrange(cens) |>
+  group_by(cens) |>
+  summarise(theta = mean(theta), .groups = "drop")
+
+theta_from_cens <- function(target_cens){
+  approx(
+    x = df_calib$cens,
+    y = df_calib$theta,
+    xout = target_cens,
+    rule = 2
+  )$y
+}
+
+theta <- sapply(cens_targets, theta_from_cens)
+
+print(cbind(
+  cens = cens_targets,
+  theta = theta
+))
+```
+
+
+Para verificar a consistência dos valores obtidos para $\theta$ para com os valores de $\tau$ definidos, foram geradas aleatoriamente 100000 amostras de tamanho 1000 de dados de sobrevivência e obtidos os percentuais de censura correspondentes. Os valores abaixo representam a média para cada um dos $\theta$ encontrados. Observa-se a consistência dos valores obtidos pois os percentuais de censura médios convergem para os 25% e 75% esperados:
+```{r}
+# Percentuais de censura reais utilizados
+mean(replicate(1e5,mean(runif(1e3, 0, theta[1]) < rexp(1e3, rate = 1/lambda))))
+mean(replicate(1e5,mean(runif(1e3, 0, theta[2]) < rexp(1e3, rate = 1/lambda))))
+```
+
+## Amostras Aleatórias
+Para gerar amostras aleatórias de dados de sobrevivência para cada um dos percentuais de censura, foi utilizado o código apresentado em [Geração de Amostras Aleatórias](#ams)
+
+```{r}
+
+aa.exp <- function(n, lambda, theta) {
+  
+  # Tempos até o evento
+  T_ <- rexp(n = n, rate = 1/lambda)
+  
+  # Tempos de censura
+  C_ <- runif(n, min = 0, max = theta)
+  
+  # Tempos Observados
+  tempos <- pmin(T_, C_)
+  # Indicador de censura
+  cens <- as.integer(T_ <= C_)
+  # Tempos observados com indicador de censura
+  X <- cbind(tempos, cens) |> as.data.frame()
+  colnames(X) <- c("time", "event")
+  
+  return(X)
+}
+
+fit.exp <- function(n = n, lambda = lambda, theta = theta){
+  
+  # Gera amostra aleatória
+  X <- aa.exp(n = n, lambda = lambda, theta = theta)
+  
+  # Modelo Paraamétrico: Distribuição Gamma Generalizada
+  # Ajusta parâmetros usando MLE
+  fit <- flexsurvreg(
+    Surv(time, event) ~ 1
+    ,data = X
+    ,dist = "exponential"
+  )
+  
+  # Extraindo estimativas pontuais
+  lambda_hat <- 1/exp(fit$coefficients[1])
+  
+  # Percentual de censura
+  cens_perc <- mean(1 - X$event)
+  
+  # Retorna as estimativas pontuais
+  return(c(c = cens_perc, lambda = lambda_hat))
+}
+
+lambda_hat_ams25 <- replicate(B, fit.exp(n, lambda, theta[1]))
+lambda_hat_ams75 <- replicate(B, fit.exp(n, lambda, theta[2]))
+
+```
+
+## Análise dos Parâmetros
+
+Percentuais de censura médio observados nas amostras geradas anteriormente:
+```{r}
+
+# Percentual de censura observado (esperado de 25%)
+lambda_hat_ams25[1, ] %>% mean()
+
+# Percentual de censura observado (esperado de 75%)
+lambda_hat_ams75[1, ] %>% mean()
+```
+
+Estimativas pontuais obtidas a partir das amostras de cada um dos percentuais de censura. Aqui já se observar um maior viés de $\hat{\lambda}_\text{75% censura}$ em relação a $\hat{\lambda}_\text{25% censura}$:
+```{r}
+# Estimativa do parâmetro lambda para 25% de censura
+lambda_hat_ams25[2, ] %>% mean()
+
+# Estimativa do parâmetro lambda para 75% de censura
+lambda_hat_ams75[2, ] %>% mean()
+```
+
+
+A fim de estudar a característica das distribuições amostrais de $\hat{\lambda}_\text{25% censura}$ e $\hat{\lambda}_\text{75% censura}$, foi plotado os respectivos histogramas, realizado teste de normalidade de Jarque-Bera e obtido os coeficientes de assimetria e curtose. Apesar de visualmente dar a entender seguirem distribuições normais, o teste de normalidade de Jarque-Bera sugere o oposto, rejeitando a hipótese nula. Para $\hat{\lambda}_\text{75% censura}$, é possível observar uma assimetria a direita, sustentado por respectivos maiores coeficientes de assimetria e curtose.
+```{r, echo=FALSE}
+# Distribuição amostral de lambda para 25% de censura
+hist(lambda_hat_ams25[2, ], main = "Distribuição Amostral (n = 1000 e 25% de censura)", xlab = "Lambda")
+
+# Distribuição amostral de lambda para 75% de censura
+hist(lambda_hat_ams75[2, ], main = "Distribuição Amostral (n = 1000 e 75% de censura)", xlab = "Lambda")
+```
+
+
+Para amostras com ~25% de censura:
+```{r}
+# Testa se a distribuições amostrais são normais
+tseries::jarque.bera.test(lambda_hat_ams25[2, ])
+skewness(lambda_hat_ams25[2, ])
+kurtosis(lambda_hat_ams25[2, ])
+```
+
+
+Para amostras com ~75% de censura:
+```{r}
+# Testa se a distribuições amostrais são normais
+tseries::jarque.bera.test(lambda_hat_ams75[2, ])
+skewness(lambda_hat_ams75[2, ])
+kurtosis(lambda_hat_ams75[2, ])
+```
+
+
+Ademais, obseva-se que $\hat{\lambda}_\text{75% censura}$ apresenta variância maior relativa a $\hat{\lambda}_\text{25% censura}$, sugerindo que maiores percentuais de censura em amostras de dados de sobrevivência geram estimativas menos consistentes não apenas em função do maior viés, mas também devido a maior variância.
+
+Para amostras com ~25% de censura:
+```{r}
+var(lambda_hat_ams25[2, ])
+(MSE25 <- var(lambda_hat_ams25[2, ]) + (mean(lambda_hat_ams25[2, ]) - lambda)^2)
+```
+
+Para amostras com ~75% de censura:
+```{r}
+var(lambda_hat_ams75[2, ])
+(MSE75 <- var(lambda_hat_ams75[2, ]) + (mean(lambda_hat_ams75[2, ]) - lambda)^2)
+MSE75/MSE25
+```
+
+Aqui, visualiza-se a convergência dos estimadores $\hat{\lambda}_\text{25% censura}$ e $\hat{\lambda}_\text{75% censura}$. Observa-se que ambos são viesados, afinal, ambos são censurados e, portanto, possuem informações parciais do tempo de falha; mas, é nítido que $\hat{\lambda}_\text{75% censura}$ superestima mais.
+```{r, echo=FALSE}
+convergencia <- rbind(
+  cbind(
+    hat = cumsum(lambda_hat_ams25[2, ]) / seq(0, B, length.out = B)
+    ,n = seq(0, B, length.out = B)
+    ,c = rep(0.25, B)
+  )
+  ,cbind(
+    hat = cumsum(lambda_hat_ams75[2, ]) / seq(0, B, length.out = B)
+    ,n = seq(0, B, length.out = B)
+    ,c = rep(0.75, B)
+  )
+) %>% as.data.frame()
+
+plot <- convergencia %>%
+ filter(n >= 100 & n <= 10000) %>%
+ ggplot() +
+  aes(x = n, y = hat, colour = factor(c)) +
+  geom_line(linewidth = 0.45) +
+  geom_hline(yintercept = lambda, linetype = "dotted", color = "#7F8C8D") +
+  scale_color_manual(values = c(
+    "0.25" = "#2D4282",
+    "0.75" = "#63B3ED"
+  ),
+    name = "% Censura") +
+  labs(
+    x = "n",
+    y = "lambda"
+  ) +
+  theme_minimal()
+plotly::ggplotly(plot)
+```
+
+## Análise de S(t)
+Com o intuito de visualizar o impacto dos diferentes percentuais de censura na estimativa de $S(t)$, plotou-se o viés relativo de $S(t)$ para uma sequência de pontos de tempo de vida.
+Nota-se que as estimativas de $S_\text{25% censura}(t_i)$ são mais consistentes ao longo do tempo de vida. Entretanto, é nítido a presença de superestimativas na cauda da distribuição. Além disso, $S_\text{25% censura}(t_i)$ apresenta viéses cada vez maiores ao longo de t.
+
+```{r}
+t_exp <- seq(0, quantile(rexp(1e5, rate = 1/lambda), 0.99), length.out = 1e3)
+
+S_t_teorica_exp <- pexp(q = t_exp, rate = 1/lambda, lower.tail = FALSE)
+df_teo <- data.frame(
+  t = t_exp,
+  S = S_t_teorica_exp
+)
+
+S_t_estimada_exp <- function(t, lambda){
+  pexp(q = t, rate = 1/lambda, lower.tail = FALSE)
+}
+
+# 25% de censura
+S_t_estimado_ams25_exp <- sapply(
+  lambda_hat_ams25[2, ]
+  ,function(lambda) S_t_estimada_exp(t_exp, lambda)
+)
+S_t_estimado_ams25_mean_exp <- rowMeans(S_t_estimado_ams25_exp)
+S_t_estimado_ams25_mean_exp_bias <- data.frame(
+  t = t_exp,
+  bias_r = S_t_estimado_ams25_mean_exp/S_t_teorica_exp - 1,
+  c = rep("25%", length(t_exp)))
+
+# 75% de censura
+S_t_estimado_ams75_exp <- sapply(
+  lambda_hat_ams75[2, ]
+  ,function(lambda) S_t_estimada_exp(t_exp, lambda)
+)
+S_t_estimado_ams75_mean_exp <- rowMeans(S_t_estimado_ams75_exp)
+S_t_estimado_ams75_mean_exp_bias <- data.frame(
+  t = t_exp,
+  bias_r = S_t_estimado_ams75_mean_exp/S_t_teorica_exp - 1,
+  c = rep("75%", length(t_exp)))
+
+```
+
+```{r, echo=FALSE}
+
+bias <- rbind(S_t_estimado_ams25_mean_exp_bias, S_t_estimado_ams75_mean_exp_bias)
+
+plotly::ggplotly(ggplot(bias) +
+  aes(x = t, y = bias_r, colour = c) +
+  geom_line() +
+  scale_color_hue(direction = 1) +
+  geom_hline(yintercept = 0, linetype = "dotted", color = "#7F8C8D") +
+  scale_color_manual(values = c(
+    "25%" = "#2D4282",
+    "75%" = "#63B3ED"
+  ),
+    name = "% Censura") +
+  labs(
+    x = "t",
+    y = "Viés Relativo"
+  ) +
+  theme_minimal())
+
+```
+
 
 # Conclusões
 
-O viés relativo dos estimadores de parâmetros e da função de sobrevivência S(t) tende a aumentar à medida que o percentual de censura aumenta, indicando que a presença de censura pode introduzir um viés significativo na estimação dos parâmetros e da função de sobrevivência. Entretanto, obaserva-se uma certa convergência do viés em torno de 0 para os percentuais de censura até entre 50 e  70%, o que sugere que os estimadores podem ser relativamente robustos a níveis moderados de censura.
+O viés relativo dos estimadores de parâmetros e da função de sobrevivência S(t) tende a aumentar à medida que o percentual de censura cresce, indicando que a presença de censura pode introduzir um viés significativo na estimação dos parâmetros e da função de sobrevivência. Entretanto, obaserva-se um viés baixo para percentuais de censura até entre 50 e  70%, o que sugere que os estimadores podem ser relativamente robustos a níveis moderados de censura.
 
 Destaca-se que as estimativas para a função de sobrevivência resultante de uma distribução Weibull foi a menos viesada e também com menor dispersão em torno de 0 para maiores percentuais de censura, conseguindo chegar a resultados consistentes para até ~88% de censura, mas apresentando o pior resultado além desse percentual quando comparado com as outras distribuições.
 
@@ -488,12 +838,13 @@ Para estudos futuros:
 
 -   Realizar o mesmo estudo variando o tamanho n da amostra e comparar o comportamento do viés;
 -   Calcular o viés relativo para o estimador não-paramétrico de Kaplan-Meier e comparar com as estimativas paramétricas;
--   Reciclar o código visando otimizar o tempo de execução do algoritmo da simulação.
+-   Reciclar o código visando otimizar o tempo de execução do algoritmo de simulação.
 
 # Referências
 
-COLOSIMO, Enrico A.; GIOLO, Suely R. Análise de sobrevivência aplicada. 2. ed. São Paulo: Blucher, 2021. (Coleção Projeto Fisher).
+Códigos utilizados disponíveis em:
+[https://github.com/victorpietchakiUFPR/UFPR_DEST_CE312_Estudo_de_Simulacao](https://github.com/victorpietchakiUFPR/UFPR_DEST_CE312_Estudo_de_Simulacao)
 
-Códigos utilizados disponíveis em: <https://github.com/Vitor-Pignatari/Projeto-integrador---Planejamento-de-experimentos>
+COLOSIMO, Enrico A.; GIOLO, Suely R. Análise de sobrevivência aplicada. 2. ed. São Paulo: Blucher, 2021. (Coleção Projeto Fisher).
 
 RIBEIRO JUNIOR, Paulo Justiniano; MAYER, Fernando Pol. Materiais da disciplina CE312. Curitiba: LEG/DEST/UFPR. Disponível em: <http://www.leg.ufpr.br/~paulojus/CE312/materiais.html>. Último acesso em: 26 abr. 2026.

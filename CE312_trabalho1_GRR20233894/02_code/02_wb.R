@@ -44,10 +44,15 @@ calc_cens <- function(theta, n = 20000){
   mean(C_ < T_)
 }
 
+
 # Gera grid para theta a fim o obter percentuais de censura
 # distribuídos de forma quase equilibrada entre 0 e 1.
 theta_grid <- exp(seq(log(0.001), log(1e3), length.out = n_cens_perc))
+
+# Calcula percentuais de censura para cada valor de theta
 cens_grid <- sapply(theta_grid, calc_cens)
+
+# Organiza dados para obter a função de calibração entre theta e censura
 df_calib <- data.frame(
   cens = cens_grid,
   theta = theta_grid
@@ -55,6 +60,9 @@ df_calib <- data.frame(
   arrange(cens) |>
   group_by(cens) |>
   summarise(theta = mean(theta), .groups = "drop")
+
+# Obtém o theta correspondente a cada percentual de censura
+# Obs.: Usa-se interpolação linear
 theta_from_cens <- function(target_cens){
   approx(
     x = df_calib$cens,
@@ -63,7 +71,10 @@ theta_from_cens <- function(target_cens){
     rule = 2
   )$y
 }
-cens_targets <- seq(0.01, 0.99, length.out = n_cens_perc)
+
+# Obtém o theta linearmante interpolado correspondente
+# Obs.: para cada percentual de censura desejado
+cens_targets <- seq(0.05, 0.95, length.out = n_cens_perc)
 theta <- sapply(cens_targets, theta_from_cens)
 
 
@@ -103,7 +114,7 @@ fit.wb <- function(n = n, shape = shape, scale = scale, theta = theta){
   # Gera amostra aleatória
   X <- aa.wb(n = n, shape = shape, scale = scale, theta = theta)
   
-  # Modelo Paraamétrico: Distribuição Gamma Generalizada
+  # Modelo Paramétrico: Weibull
   # Ajusta parâmetros usando MLE
   fit <- survreg(
     Surv(time, event) ~ 1
